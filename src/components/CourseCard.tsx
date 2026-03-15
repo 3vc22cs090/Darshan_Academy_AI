@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Star, PlayCircle, Lock, ShoppingCart } from 'lucide-react';
 import { mockApi } from '../services/api';
 
