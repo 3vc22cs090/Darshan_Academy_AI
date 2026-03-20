@@ -51,27 +51,42 @@ const AIChat: React.FC = () => {
     setInput('');
     setIsTyping(true);
 
-    // Mock AI Response
-    setTimeout(() => {
-      const responses = [
-        "That's a great question! Based on your interest in web development, I recommend checking out our 'React JS Full Course 2026'.",
-        "The 'Full Stack Web Development Bootcamp' by Angela Yu is one of our most popular courses and covers everything from HTML to Backend.",
-        "To master Python, you should start with 'Complete Python Bootcamp: Zero to Hero'. It's perfect for beginners!",
-        "If you're interested in AI, 'AI & Machine Learning for Beginners' by Andrew Ng is a fantastic starting point.",
-        "Learning paths on Darshan LMS are designed to take you from zero to job-ready. Which technology are you most excited about?",
-      ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    try {
+      // Connect to the Hugging Face Space
+      // @ts-ignore
+      const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
+      const client = await Client.connect("Kiran143/LMS_AI");
+      
+      const result = await client.predict("/respond", { 		
+        message: input, 		
+        system_message: "You are a friendly Chatbot.", 		
+        max_tokens: 512, 		
+        temperature: 0.7, 		
+        top_p: 0.95, 
+      });
+
+      const aiText = result.data[0];
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: randomResponse,
+        text: aiText || "I'm sorry, I couldn't process that request.",
         sender: 'ai',
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("AI Chat Error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "I'm having trouble connecting to my brain right now. Please try again later.",
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
