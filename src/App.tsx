@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import CourseCard from './components/CourseCard';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import PaymentModal from './components/PaymentModal';
+import AIChat from './components/AIChat';
 import { mockApi } from './services/api';
 
 const ALL_COURSES = [
@@ -162,6 +164,24 @@ const App: React.FC = () => {
                    {searchQuery ? `Courses for "${searchQuery}"` : 'Academy Hub: Master Your Future'}
                 </h2>
                 <div className="course-grid">
+                  <div className="ai-cta-card glass">
+                    <div className="ai-cta-content">
+                      <div className="ai-cta-icon-wrapper">
+                        <Sparkles size={32} className="sparkle-icon-big" />
+                      </div>
+                      <div className="ai-cta-text">
+                        <h2>Personal AI Learning Assistant</h2>
+                        <p>Ask about courses, career paths, or get help with your studies instantly.</p>
+                      </div>
+                      <button 
+                        className="btn btn-purple ai-chat-big-btn"
+                        onClick={() => window.dispatchEvent(new CustomEvent('openAIChat'))}
+                      >
+                        <Sparkles size={18} style={{marginRight: '10px'}} />
+                        Chat with AI
+                      </button>
+                    </div>
+                  </div>
                   {filteredCourses.map((course) => (
                     <CourseCard 
                       key={course.id} 
@@ -267,6 +287,8 @@ const App: React.FC = () => {
         loading={paymentLoading}
       />
       
+      <AIChat />
+
       <style>{`
         .view-container {
           padding-top: 20px;
@@ -318,6 +340,55 @@ const App: React.FC = () => {
         }
         @media (max-width: 600px) {
            .course-grid { grid-template-columns: 1fr; }
+        }
+        .ai-cta-card {
+          grid-column: 1 / -1;
+          padding: 40px;
+          margin-bottom: 20px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, rgba(120, 75, 160, 0.3) 0%, rgba(255, 60, 172, 0.1) 100%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+        }
+        .ai-cta-content {
+          max-width: 600px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+        }
+        .ai-cta-icon-wrapper {
+          width: 64px;
+          height: 64px;
+          background: white;
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 10px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .sparkle-icon-big {
+          color: #FF3CAC;
+        }
+        .ai-cta-text h2 {
+          font-size: 32px;
+          font-weight: 900;
+          margin-bottom: 12px;
+        }
+        .ai-cta-text p {
+          font-size: 18px;
+          color: rgba(255, 255, 255, 0.8);
+          margin-bottom: 24px;
+        }
+        .ai-chat-big-btn {
+          font-size: 16px;
+          height: 56px;
+          padding: 0 40px;
+          box-shadow: 0 10px 40px rgba(255, 60, 172, 0.4);
         }
       `}</style>
     </div>
