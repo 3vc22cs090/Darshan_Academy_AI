@@ -91,7 +91,22 @@ const AIChat: React.FC = () => {
         }
 
         const json = await response.json();
-        return json.data ? json.data[0] : "I'm sorry, I couldn't process that request.";
+        
+        // Log the response structure for debugging
+        console.log("AI Response Structure:", json);
+
+        // Robust parsing for different Gradio versions/formats
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          return json.data[0];
+        } else if (typeof json.data === 'string') {
+          return json.data;
+        } else if (json.result && typeof json.result === 'string') {
+          return json.result;
+        } else if (typeof json === 'string') {
+          return json;
+        }
+        
+        return "I'm sorry, I couldn't process that request properly. (Empty AI Response)";
       })();
 
       const aiText = await Promise.race([aiProcessPromise, timeoutPromise]);
