@@ -52,7 +52,7 @@ const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
-      console.log("AI Chat: Calling server-side proxy...");
+      console.log("AI Chat v1.6: Calling server-side proxy...");
       
       // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
       const chatHistory: [string, string][] = [];
@@ -79,7 +79,8 @@ const AIChat: React.FC = () => {
             system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.",
             max_tokens: 512,
             temperature: 0.7,
-            top_p: 0.95
+            top_p: 0.95,
+            version: "1.6"
           })
         });
 
@@ -93,7 +94,7 @@ const AIChat: React.FC = () => {
       })();
 
       const aiText = await Promise.race([aiProcessPromise, timeoutPromise]);
-      console.log("AI Chat: Success via Proxy!");
+      console.log("AI Chat v1.6: Success!");
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -113,7 +114,7 @@ const AIChat: React.FC = () => {
       } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
         errorText = "The server had a security issue. Please ensure VITE_HF_TOKEN is correct in Vercel settings.";
       } else {
-        errorText = `Technical Detail: ${error.message || 'Unknown error'}. Please try again.`;
+        errorText = `Technical Detail (v1.6): ${error.message || 'Unknown error'}. Please try again.`;
       }
       
       const errorMessage: Message = {

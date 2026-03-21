@@ -6,10 +6,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { message, system_message, max_tokens, temperature, top_p } = req.body;
+  const { message, system_message, max_tokens, temperature, top_p, version } = req.body;
   const hfToken = process.env.VITE_HF_TOKEN || process.env.HF_TOKEN;
 
-  console.log("API Proxy: Connecting via @gradio/client...");
+  console.log(`API Proxy v1.6: Connecting for request v${version || 'unknown'}...`);
 
   try {
     // 1. Connect to the space
