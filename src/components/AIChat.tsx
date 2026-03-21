@@ -52,9 +52,7 @@ const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
-      console.log("AI Chat: Initiating connection...");
-      const rawToken = import.meta.env.VITE_HF_TOKEN || "";
-      const hfToken = rawToken ? (rawToken.startsWith('hf_') ? rawToken : `hf_${rawToken}`) : undefined;
+      console.log("AI Chat: Calling server-side proxy...");
       
       // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
       const chatHistory: [string, string][] = [];
@@ -64,63 +62,38 @@ const AIChat: React.FC = () => {
         }
       }
 
-      // Timeout for the entire process
+      // 90-second timeout for the UI
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('AI_TIMEOUT')), 90000)
       );
 
       const aiProcessPromise = (async () => {
-        try {
-          console.log("AI Chat: Attempting Gradio Client connection...");
-          // @ts-ignore
-          const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
-          const client = await Client.connect("https://kiran143-lms-ai.hf.space", { hf_token: hfToken });
-          
-          const result = await client.predict("/chat", { 		
-            message: input, 		
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: input,
             history: chatHistory,
-            system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 		
-            max_tokens: 512, 		
-            temperature: 0.7, 		
-            top_p: 0.95, 
-          });
-          return result.data[0];
-        } catch (gradioError) {
-          console.warn("AI Chat: Gradio Client failed, trying direct REST fallback...", gradioError);
-          
-          // Direct REST Fallback (More robust, uses standard HTTPS instead of WebSockets)
-          const response = await fetch("https://kiran143-lms-ai.hf.space/api/predict", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(hfToken ? { "Authorization": `Bearer ${hfToken}` } : {})
-            },
-            body: JSON.stringify({
-              data: [
-                input, 
-                chatHistory, 
-                "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 
-                512, 
-                0.7, 
-                0.95
-              ],
-              fn_index: 0 // Common index for chat functions in basic Gradio apps
-            })
-          });
+            system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.",
+            max_tokens: 512,
+            temperature: 0.7,
+            top_p: 0.95
+          })
+        });
 
-          if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(`REST API failed (${response.status}): ${errorData}`);
-          }
-
-          const json = await response.json();
-          // Gradio REST returns data as an array in the .data property
-          return json.data ? json.data[0] : "I'm sorry, I couldn't process that request.";
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+          throw new Error(errorData.error || `Proxy failed with status ${response.status}`);
         }
+
+        const json = await response.json();
+        return json.data ? json.data[0] : "I'm sorry, I couldn't process that request.";
       })();
 
       const aiText = await Promise.race([aiProcessPromise, timeoutPromise]);
-      console.log("AI Chat: Success!");
+      console.log("AI Chat: Success via Proxy!");
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -136,11 +109,9 @@ const AIChat: React.FC = () => {
       let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
       
       if (error.message === 'AI_TIMEOUT') {
-        errorText = "The AI server is taking too long to respond. This usually happens if the server is waking up or if your connection is unstable. Please try once more!";
-      } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-        errorText = "Authentication failed. Please check your VITE_HF_TOKEN in Vercel settings.";
-      } else if (error.message?.includes('REST API failed')) {
-        errorText = "Connectivity hurdle: I tried a backup connection but it also failed. Please check if the AI Space is online.";
+        errorText = "The AI server is taking too long to respond. This might be a connection issue between Vercel and Hugging Face. Please try once more!";
+      } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+        errorText = "The server had a security issue. Please ensure VITE_HF_TOKEN is correct in Vercel settings.";
       } else {
         errorText = `Technical Detail: ${error.message || 'Unknown error'}. Please try again.`;
       }
