@@ -58,18 +58,18 @@ const AIChat: React.FC = () => {
       const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
       
       // Get token from environment if available (must be prefixed with VITE_ for Vite browsers)
-      const rawToken = import.meta.env.VITE_HF_TOKEN;
+      const rawToken = import.meta.env.VITE_HF_TOKEN || "";
       const hfToken = rawToken ? (rawToken.startsWith('hf_') ? rawToken : `hf_${rawToken}`) : undefined;
       
-      console.log("AI Chat: Environment check - Token present:", !!hfToken);
+      console.log("AI Chat: Token check:", rawToken ? `Exists (${rawToken.length} chars)` : "Missing");
 
-      // Wrap everything in a 40-second timeout (Gradio wake-up can be slow)
+      // Wrap everything in a 90-second timeout (Gradio cold starts can be very slow)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('AI Connection Timed Out (Waking up server...)')), 40000)
+        setTimeout(() => reject(new Error('AI_TIMEOUT')), 90000)
       );
 
       const aiProcessPromise = (async () => {
-        console.log("AI Chat: Connecting to Space...");
+        console.log("AI Chat: Connecting to Kiran143/LMS_AI...");
         const client = await Client.connect("Kiran143/LMS_AI", {
           hf_token: hfToken
         });
@@ -113,12 +113,12 @@ const AIChat: React.FC = () => {
       
       let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
       
-      if (error.message?.includes('Timed Out')) {
-        errorText = "I'm taking a bit too long to wake up. This usually happens if the AI server has been sleeping. Please try sending your message one more time - it should work now!";
+      if (error.message === 'AI_TIMEOUT') {
+        errorText = "The AI server is taking quite a while to wake up (cold start). This usually takes 60-90 seconds for the first message of the day. Please wait a moment and try sending your message one more time—it should be ready now!";
       } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-        errorText = "I'm having trouble with my security token. Please ensure the VITE_HF_TOKEN is correct in Vercel.";
+        errorText = "I'm having trouble with my security token. Please ensure the VITE_HF_TOKEN is correct in Vercel settings and that you have redeployed.";
       } else if (error.message?.includes('Fetch')) {
-        errorText = "I'm having a network connectivity issue. This might be due to a firewall or browser extension blocking Hugging Face.";
+        errorText = "Network Error: I couldn't reach Hugging Face. This might be blocked by a firewall or browser extension.";
       }
       
       const errorMessage: Message = {
