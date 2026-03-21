@@ -74,9 +74,19 @@ const AIChat: React.FC = () => {
           hf_token: hfToken
         });
         
-        console.log("AI Chat: Connected. Predicting...");
-        const result = await client.predict("/respond", { 		
+        console.log("AI Chat: Connected. Predicting via /chat...");
+        
+        // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
+        const history: [string, string][] = [];
+        for (let i = 1; i < messages.length; i += 2) {
+          if (messages[i] && messages[i+1]) {
+            history.push([messages[i].text, messages[i+1].text]);
+          }
+        }
+
+        const result = await client.predict("/chat", { 		
           message: input, 		
+          history: history,
           system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 		
           max_tokens: 512, 		
           temperature: 0.7, 		
