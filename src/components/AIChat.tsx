@@ -52,34 +52,68 @@ const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
+      console.log("AI Chat: Initiating connection...");
       // Connect to the Hugging Face Space
       // @ts-ignore
       const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
-      const client = await Client.connect("Kiran143/LMS_AI");
       
-      const result = await client.predict("/respond", { 		
-        message: input, 		
-        system_message: "You are a friendly Chatbot.", 		
-        max_tokens: 512, 		
-        temperature: 0.7, 		
-        top_p: 0.95, 
-      });
+      // Get token from environment if available (must be prefixed with VITE_ for Vite browsers)
+      const rawToken = import.meta.env.VITE_HF_TOKEN;
+      const hfToken = rawToken ? (rawToken.startsWith('hf_') ? rawToken : `hf_${rawToken}`) : undefined;
+      
+      console.log("AI Chat: Environment check - Token present:", !!hfToken);
 
-      const aiText = result.data[0];
+      // Wrap everything in a 40-second timeout (Gradio wake-up can be slow)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('AI Connection Timed Out (Waking up server...)')), 40000)
+      );
+
+      const aiProcessPromise = (async () => {
+        console.log("AI Chat: Connecting to Space...");
+        const client = await Client.connect("Kiran143/LMS_AI", {
+          hf_token: hfToken
+        });
+        
+        console.log("AI Chat: Connected. Predicting...");
+        const result = await client.predict("/respond", { 		
+          message: input, 		
+          system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 		
+          max_tokens: 512, 		
+          temperature: 0.7, 		
+          top_p: 0.95, 
+        });
+        return result;
+      })();
+
+      const result: any = await Promise.race([aiProcessPromise, timeoutPromise]);
+      console.log("AI Chat: Success!");
+
+      const aiText = result.data?.[0];
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: aiText || "I'm sorry, I couldn't process that request.",
+        text: aiText || "I'm sorry, I couldn't process that request properly.",
         sender: 'ai',
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("AI Chat Error:", error);
+    } catch (error: any) {
+      console.error("AI Chat Error Details:", error);
+      
+      let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
+      
+      if (error.message?.includes('Timed Out')) {
+        errorText = "I'm taking a bit too long to wake up. This usually happens if the AI server has been sleeping. Please try sending your message one more time - it should work now!";
+      } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        errorText = "I'm having trouble with my security token. Please ensure the VITE_HF_TOKEN is correct in Vercel.";
+      } else if (error.message?.includes('Fetch')) {
+        errorText = "I'm having a network connectivity issue. This might be due to a firewall or browser extension blocking Hugging Face.";
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm having trouble connecting to my brain right now. Please try again later.",
+        text: errorText,
         sender: 'ai',
         timestamp: new Date(),
       };
