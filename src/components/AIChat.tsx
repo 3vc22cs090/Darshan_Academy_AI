@@ -61,16 +61,21 @@ const AIChat: React.FC = () => {
       const rawToken = import.meta.env.VITE_HF_TOKEN || "";
       const hfToken = rawToken ? (rawToken.startsWith('hf_') ? rawToken : `hf_${rawToken}`) : undefined;
       
-      console.log("AI Chat: Token check:", rawToken ? `Exists (${rawToken.length} chars)` : "Missing");
+      console.log("AI Chat: Configuration:", {
+        tokenPresent: !!hfToken,
+        tokenLength: rawToken.length,
+        version: "1.4"
+      });
 
-      // Wrap everything in a 90-second timeout (Gradio cold starts can be very slow)
+      // Wrap everything in a 90-second timeout
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('AI_TIMEOUT')), 90000)
       );
 
       const aiProcessPromise = (async () => {
-        console.log("AI Chat: Connecting to Kiran143/LMS_AI...");
-        const client = await Client.connect("Kiran143/LMS_AI", {
+        console.log("AI Chat: Connecting to https://kiran143-lms-ai.hf.space...");
+        // Using the direct URL is often more reliable than the Space ID
+        const client = await Client.connect("https://kiran143-lms-ai.hf.space", {
           hf_token: hfToken
         });
         
@@ -109,16 +114,19 @@ const AIChat: React.FC = () => {
       
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
-      console.error("AI Chat Error Details:", error);
+      console.error("AI Chat Full Error:", error);
       
       let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
       
       if (error.message === 'AI_TIMEOUT') {
-        errorText = "The AI server is taking quite a while to wake up (cold start). This usually takes 60-90 seconds for the first message of the day. Please wait a moment and try sending your message one more time—it should be ready now!";
+        errorText = "The AI server is taking too long to respond. This might be a connection issue between Vercel and Hugging Face. Please try one more time.";
       } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-        errorText = "I'm having trouble with my security token. Please ensure the VITE_HF_TOKEN is correct in Vercel settings and that you have redeployed.";
+        errorText = "Authentication failed. Please check your VITE_HF_TOKEN in Vercel.";
       } else if (error.message?.includes('Fetch')) {
-        errorText = "Network Error: I couldn't reach Hugging Face. This might be blocked by a firewall or browser extension.";
+        errorText = "Connectivity error. If you have an AdBlocker, try disabling it for this site.";
+      } else {
+        // Show the specific error to help with debugging
+        errorText = `Technical Error: ${error.message || 'Unknown error'}. Please report this if it persists.`;
       }
       
       const errorMessage: Message = {
