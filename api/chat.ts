@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { message, system_message, max_tokens, temperature, top_p, version } = req.body;
   const hfToken = process.env.VITE_HF_TOKEN || process.env.HF_TOKEN;
 
-  console.log(`API Proxy v1.6: Connecting for request v${version || 'unknown'}...`);
+  console.log(`API Proxy v1.7: Connecting for request v${version || 'unknown'}...`);
 
   try {
     // 1. Connect to the space

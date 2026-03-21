@@ -52,7 +52,7 @@ const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
-      console.log("AI Chat v1.6: Calling server-side proxy...");
+      console.log("AI Chat v1.7: Calling server-side proxy...");
       
       // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
       const chatHistory: [string, string][] = [];
@@ -68,7 +68,8 @@ const AIChat: React.FC = () => {
       );
 
       const aiProcessPromise = (async () => {
-        const response = await fetch("/api/chat", {
+        // Added cache-busting timestamp
+        const response = await fetch(`/api/chat?t=${Date.now()}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -76,17 +77,17 @@ const AIChat: React.FC = () => {
           body: JSON.stringify({
             message: input,
             history: chatHistory,
-            system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.",
+            system_message: "You are a friendly Chatbot for Darshan Academy LMS.",
             max_tokens: 512,
             temperature: 0.7,
             top_p: 0.95,
-            version: "1.6"
+            version: "1.7"
           })
         });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
-          throw new Error(errorData.error || `Proxy failed with status ${response.status}`);
+          throw new Error(errorData.error || `Proxy failed (${response.status})`);
         }
 
         const json = await response.json();
@@ -94,7 +95,7 @@ const AIChat: React.FC = () => {
       })();
 
       const aiText = await Promise.race([aiProcessPromise, timeoutPromise]);
-      console.log("AI Chat v1.6: Success!");
+      console.log("AI Chat v1.7: Success!");
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -105,16 +106,16 @@ const AIChat: React.FC = () => {
       
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
-      console.error("AI Chat Full Error:", error);
+      console.error("AI Chat v1.7 Full Error:", error);
       
       let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
       
       if (error.message === 'AI_TIMEOUT') {
-        errorText = "The AI server is taking too long to respond. This might be a connection issue between Vercel and Hugging Face. Please try once more!";
+        errorText = "The AI server is taking too long to respond (v1.7). This might be a connection issue between Vercel and Hugging Face. Please try once more!";
       } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
-        errorText = "The server had a security issue. Please ensure VITE_HF_TOKEN is correct in Vercel settings.";
+        errorText = "Security Error (v1.7): Access Token is invalid or missing in Vercel settings.";
       } else {
-        errorText = `Technical Detail (v1.6): ${error.message || 'Unknown error'}. Please try again.`;
+        errorText = `Technical Detail (v1.7): ${error.message || 'Unknown error'}. Please try again.`;
       }
       
       const errorMessage: Message = {
