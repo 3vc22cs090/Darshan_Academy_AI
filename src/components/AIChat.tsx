@@ -53,57 +53,74 @@ const AIChat: React.FC = () => {
 
     try {
       console.log("AI Chat: Initiating connection...");
-      // Connect to the Hugging Face Space
-      // @ts-ignore
-      const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
-      
-      // Get token from environment if available (must be prefixed with VITE_ for Vite browsers)
       const rawToken = import.meta.env.VITE_HF_TOKEN || "";
       const hfToken = rawToken ? (rawToken.startsWith('hf_') ? rawToken : `hf_${rawToken}`) : undefined;
       
-      console.log("AI Chat: Configuration:", {
-        tokenPresent: !!hfToken,
-        tokenLength: rawToken.length,
-        version: "1.4"
-      });
+      // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
+      const chatHistory: [string, string][] = [];
+      for (let i = 1; i < messages.length; i += 2) {
+        if (messages[i] && messages[i+1]) {
+          chatHistory.push([messages[i].text, messages[i+1].text]);
+        }
+      }
 
-      // Wrap everything in a 90-second timeout
+      // Timeout for the entire process
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('AI_TIMEOUT')), 90000)
       );
 
       const aiProcessPromise = (async () => {
-        console.log("AI Chat: Connecting to https://kiran143-lms-ai.hf.space...");
-        // Using the direct URL is often more reliable than the Space ID
-        const client = await Client.connect("https://kiran143-lms-ai.hf.space", {
-          hf_token: hfToken
-        });
-        
-        console.log("AI Chat: Connected. Predicting via /chat...");
-        
-        // Map current messages to Gradio history format: [[user, bot], [user, bot], ...]
-        const history: [string, string][] = [];
-        for (let i = 1; i < messages.length; i += 2) {
-          if (messages[i] && messages[i+1]) {
-            history.push([messages[i].text, messages[i+1].text]);
-          }
-        }
+        try {
+          console.log("AI Chat: Attempting Gradio Client connection...");
+          // @ts-ignore
+          const { Client } = await import('https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js');
+          const client = await Client.connect("https://kiran143-lms-ai.hf.space", { hf_token: hfToken });
+          
+          const result = await client.predict("/chat", { 		
+            message: input, 		
+            history: chatHistory,
+            system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 		
+            max_tokens: 512, 		
+            temperature: 0.7, 		
+            top_p: 0.95, 
+          });
+          return result.data[0];
+        } catch (gradioError) {
+          console.warn("AI Chat: Gradio Client failed, trying direct REST fallback...", gradioError);
+          
+          // Direct REST Fallback (More robust, uses standard HTTPS instead of WebSockets)
+          const response = await fetch("https://kiran143-lms-ai.hf.space/api/predict", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(hfToken ? { "Authorization": `Bearer ${hfToken}` } : {})
+            },
+            body: JSON.stringify({
+              data: [
+                input, 
+                chatHistory, 
+                "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 
+                512, 
+                0.7, 
+                0.95
+              ],
+              fn_index: 0 // Common index for chat functions in basic Gradio apps
+            })
+          });
 
-        const result = await client.predict("/chat", { 		
-          message: input, 		
-          history: history,
-          system_message: "You are a friendly Chatbot for Darshan Academy LMS. Help users with course information and learning queries.", 		
-          max_tokens: 512, 		
-          temperature: 0.7, 		
-          top_p: 0.95, 
-        });
-        return result;
+          if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`REST API failed (${response.status}): ${errorData}`);
+          }
+
+          const json = await response.json();
+          // Gradio REST returns data as an array in the .data property
+          return json.data ? json.data[0] : "I'm sorry, I couldn't process that request.";
+        }
       })();
 
-      const result: any = await Promise.race([aiProcessPromise, timeoutPromise]);
+      const aiText = await Promise.race([aiProcessPromise, timeoutPromise]);
       console.log("AI Chat: Success!");
-
-      const aiText = result.data?.[0];
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -119,14 +136,13 @@ const AIChat: React.FC = () => {
       let errorText = "I'm having trouble connecting to my brain right now. Please try again later.";
       
       if (error.message === 'AI_TIMEOUT') {
-        errorText = "The AI server is taking too long to respond. This might be a connection issue between Vercel and Hugging Face. Please try one more time.";
+        errorText = "The AI server is taking too long to respond. This usually happens if the server is waking up or if your connection is unstable. Please try once more!";
       } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-        errorText = "Authentication failed. Please check your VITE_HF_TOKEN in Vercel.";
-      } else if (error.message?.includes('Fetch')) {
-        errorText = "Connectivity error. If you have an AdBlocker, try disabling it for this site.";
+        errorText = "Authentication failed. Please check your VITE_HF_TOKEN in Vercel settings.";
+      } else if (error.message?.includes('REST API failed')) {
+        errorText = "Connectivity hurdle: I tried a backup connection but it also failed. Please check if the AI Space is online.";
       } else {
-        // Show the specific error to help with debugging
-        errorText = `Technical Error: ${error.message || 'Unknown error'}. Please report this if it persists.`;
+        errorText = `Technical Detail: ${error.message || 'Unknown error'}. Please try again.`;
       }
       
       const errorMessage: Message = {
