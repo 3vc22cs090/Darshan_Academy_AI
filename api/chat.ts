@@ -8,10 +8,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { message, history, system_message, max_tokens, temperature, top_p } = req.body;
   const hfToken = process.env.VITE_HF_TOKEN || process.env.HF_TOKEN;
 
-  console.log("API Proxy: Forwarding request to Hugging Face Space...");
+  console.log("API Proxy: Forwarding request to /respond endpoint...");
 
   try {
-    const response = await fetch("https://kiran143-lms-ai.hf.space/api/predict", {
+    // The screenshot shows the endpoint is actually "/respond"
+    const response = await fetch("https://kiran143-lms-ai.hf.space/api/respond", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -20,15 +21,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         data: [
           message,
-          history || [],
           system_message || "You are a friendly Chatbot.",
           max_tokens || 512,
           temperature || 0.7,
           top_p || 0.95
-        ],
-        fn_index: 0
+        ]
       }),
-      signal: AbortSignal.timeout(60000) // 60s timeout for the fetch
+      signal: AbortSignal.timeout(60000)
     });
 
     if (!response.ok) {
